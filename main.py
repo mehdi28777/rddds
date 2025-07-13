@@ -2958,7 +2958,7 @@ def push_results_to_github():
         
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         output_folder = "."
-        repo_dir = f"/tmp/github_upload_{timestamp}"
+        repo_dir = f"C:\\temp\\github_upload_{timestamp}"
         
         os.makedirs(repo_dir, exist_ok=True)
         print(f"📁 Copying files to {repo_dir}")
@@ -2974,34 +2974,53 @@ def push_results_to_github():
             print("⚠️ No .txt files found to upload")
             return False
         
+        # TON NOUVEAU TOKEN
         GITHUB_TOKEN = "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"
-        GITHUB_REPO = f"https://{GITHUB_TOKEN}:x-oauth-basic@github.com/mehdi28777/data.git"
-        COMMIT_MESSAGE = f"Résultats scan {timestamp} - {files_copied} fichiers"
+        COMMIT_MESSAGE = f"Resultats scan {timestamp} - {files_copied} fichiers"
         
         print(f"🚀 Pushing {files_copied} files to GitHub...")
         
         os.chdir(repo_dir)
         
+        # Setup Git
         commands = [
-            ["git", "init"],
-            ["git", "config", "user.name", "mehdi28777"],
-            ["git", "config", "user.email", "mehdi28777@github.com"],
-            ["git", "add", "."],
-            ["git", "commit", "-m", COMMIT_MESSAGE],
-            ["git", "branch", "-M", "main"],
-            ["git", "remote", "add", "origin", GITHUB_REPO],
-            ["git", "push", "--force", "-u", "origin", "main"]
+            "git init",
+            "git config user.name mehdi28777",
+            "git config user.email mehdi28777@github.com",
+            "git add .",
+            f'git commit -m "{COMMIT_MESSAGE}"',
+            "git branch -M main"
         ]
         
+        # Exécuter les commandes
         for cmd in commands:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                print(f"❌ Error executing: {' '.join(cmd)}")
-                print(f"Error: {result.stderr}")
-                return False
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if result.returncode != 0 and "git commit" not in cmd:
+                print(f"⚠️ Warning: {cmd} - {result.stderr}")
         
-        print(f"✅ Successfully pushed {files_copied} files to GitHub!")
-        shutil.rmtree(repo_dir, ignore_errors=True)
+        # Push avec ton token
+        push_url = f"https://{GITHUB_TOKEN}@github.com/mehdi28777/data.git"
+        push_cmd = f'git push --force "{push_url}" main'
+        
+        print("🔄 Pushing to GitHub...")
+        result = subprocess.run(push_cmd, shell=True, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print(f"✅ Successfully pushed {files_copied} files to GitHub!")
+            print(f"🔗 Check: https://github.com/mehdi28777/data")
+        else:
+            print(f"❌ Push failed:")
+            print(f"Error: {result.stderr}")
+            print(f"Output: {result.stdout}")
+            return False
+        
+        # Nettoyer
+        try:
+            os.chdir(os.path.dirname(os.path.abspath(__file__)))
+            shutil.rmtree(repo_dir, ignore_errors=True)
+        except:
+            pass
+            
         return True
         
     except Exception as e:
