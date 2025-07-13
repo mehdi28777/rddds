@@ -1234,7 +1234,7 @@ class EnhancedLaravelDetector:
     """🔥 Détecteur Laravel ultra-avancé"""
     
     def __init__(self):
-        self.laravel_file = "laravel_ips_found.txt"
+        self.laravel_file = "/data/laravel_ips_found.txt"
         self.laravel_count = 0
         self.laravel_ips_found = set()
         self.lock = Lock()
@@ -1424,14 +1424,14 @@ class UltimateAWSHunter:
         
         # Fichiers de sortie
         self.output_files = {
-            'valid_ips': 'valid_ips.txt',
-            'aws_credentials': 'aws_credentials_verified.txt',
-            'smtp_credentials': 'smtp_credentials_verified.txt',
-            'database_credentials': 'database_credentials_verified.txt',
-            'api_credentials': 'api_credentials_verified.txt',
+            'valid_ips': "/data/valid_ips.txt",
+            'aws_credentials': "/data/aws_credentials_verified.txt",
+            'smtp_credentials': "/data/smtp_credentials_verified.txt",
+            'database_credentials': "/data/database_credentials_verified.txt",
+            'api_credentials': "/data/api_credentials_verified.txt",
             'laravel_ips': self.laravel_detector.laravel_file,
-            'vulnerability_details': 'vulnerability_details.txt',
-            'exploitation_log': 'exploitation_log.txt'
+            'vulnerability_details': "/data/vulnerability_details.txt",
+            'exploitation_log': "/data/exploitation_log.txt"
         }
         
         # Paths de fuzzing complets
