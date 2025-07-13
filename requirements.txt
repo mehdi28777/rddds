@@ -1,0 +1,7 @@
+requests
+psutil
+colorama
+boto3
+httpx
+aiohttp
+uvloop
