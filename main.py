@@ -2974,7 +2974,7 @@ def push_results_to_github():
             print("⚠️ No .txt files found to upload")
             return False
         
-        GITHUB_TOKEN = "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"
+        GITHUB_TOKEN = "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"
         GITHUB_REPO = f"https://{GITHUB_TOKEN}@github.com/mehdi28777/data.git"
         COMMIT_MESSAGE = f"Résultats scan {timestamp} - {files_copied} fichiers"
         
