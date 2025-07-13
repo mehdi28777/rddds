@@ -2975,7 +2975,7 @@ def push_results_to_github():
             return False
         
         GITHUB_TOKEN = "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"
-        GITHUB_REPO = f"https://{GITHUB_TOKEN}@github.com/mehdi28777/data.git"
+        GITHUB_REPO = f"https://{GITHUB_TOKEN}:x-oauth-basic@github.com/mehdi28777/data.git"
         COMMIT_MESSAGE = f"Résultats scan {timestamp} - {files_copied} fichiers"
         
         print(f"🚀 Pushing {files_copied} files to GitHub...")
