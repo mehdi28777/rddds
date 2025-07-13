@@ -2901,101 +2901,83 @@ You can use these credentials for email sending.
 # ==================== FONCTIONS UTILITAIRES ====================
 
 def push_results_to_github():
-    """🔁 Push automatique des résultats vers GitHub"""
+    """🔁 Push automatique des résultats vers GitHub via API"""
     try:
-        import subprocess
-        import shutil
+        import requests
+        import base64
         from datetime import datetime
         
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        output_folder = "."
-        repo_dir = f"C:\\temp\\github_upload_{timestamp}"
         
-        # Créer le dossier temporaire
-        os.makedirs(repo_dir, exist_ok=True)
-        print(f"📁 Copying files to {repo_dir}")
-        
-        # Copier tous les fichiers .txt
-        files_copied = 0
-        for file in os.listdir(output_folder):
-            if file.endswith(".txt"):
-                try:
-                    shutil.copy(os.path.join(output_folder, file), os.path.join(repo_dir, file))
-                    files_copied += 1
-                    print(f"📄 Copied: {file}")
-                except Exception as e:
-                    print(f"❌ Error copying {file}: {e}")
-        
-        if files_copied == 0:
-            print("⚠️ No .txt files found to upload")
-            return False
-        
-        # Configuration GitHub avec TON TOKEN
+        # TON TOKEN
         GITHUB_TOKEN = "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"
-        COMMIT_MESSAGE = f"Resultats scan {timestamp} - {files_copied} fichiers"
+        REPO_OWNER = "mehdi28777"
+        REPO_NAME = "data"
         
-        print(f"🚀 Pushing {files_copied} files to GitHub...")
+        headers = {
+            'Authorization': f'token {GITHUB_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        }
         
-        # Changer vers le dossier temporaire
-        original_dir = os.getcwd()
-        os.chdir(repo_dir)
+        print("🚀 Uploading files to GitHub via API...")
         
-        try:
-            # Commandes Git
-            commands = [
-                "git init",
-                "git config user.name mehdi28777",
-                "git config user.email mehdi28777@github.com",
-                "git add .",
-                f'git commit -m "{COMMIT_MESSAGE}"',
-                "git branch -M main"
-            ]
-            
-            # Exécuter les commandes de setup
-            for cmd in commands:
-                print(f"🔄 Executing: {cmd}")
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                if result.returncode != 0:
-                    print(f"⚠️ Command warning: {cmd}")
-                    print(f"stderr: {result.stderr}")
-                    if "git commit" not in cmd:  # Continue même si commit échoue
-                        continue
-            
-            # Push vers GitHub
-            push_url = f"https://{GITHUB_TOKEN}@github.com/mehdi28777/data.git"
-            push_cmd = f'git push --force "{push_url}" main'
-            
-            print("🔄 Pushing to GitHub...")
-            result = subprocess.run(push_cmd, shell=True, capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                print(f"✅ Successfully pushed {files_copied} files to GitHub!")
-                print(f"🔗 Check your repo: https://github.com/mehdi28777/data")
-                success = True
-            else:
-                print(f"❌ Git push failed!")
-                print(f"Error: {result.stderr}")
-                print(f"Output: {result.stdout}")
-                success = False
+        files_uploaded = 0
+        
+        # Lister tous les fichiers .txt
+        for filename in os.listdir("."):
+            if not filename.endswith(".txt"):
+                continue
                 
-        except Exception as e:
-            print(f"❌ Git operations failed: {e}")
-            success = False
-        finally:
-            # Retourner au dossier original
-            os.chdir(original_dir)
-            
-            # Nettoyer le dossier temporaire
             try:
-                shutil.rmtree(repo_dir, ignore_errors=True)
-                print("🧹 Cleaned up temporary files")
+                # Lire le fichier
+                with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                
+                # Encoder en base64
+                content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+                
+                # Préparer les données pour l'API
+                data = {
+                    'message': f'Upload {filename} - {timestamp}',
+                    'content': content_b64,
+                    'branch': 'main'
+                }
+                
+                # URL de l'API GitHub pour créer/modifier un fichier
+                api_url = f'https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filename}'
+                
+                # Vérifier si le fichier existe déjà
+                check_response = requests.get(api_url, headers=headers)
+                if check_response.status_code == 200:
+                    # Fichier existe, récupérer le SHA pour la mise à jour
+                    existing_file = check_response.json()
+                    data['sha'] = existing_file['sha']
+                
+                # Créer ou mettre à jour le fichier
+                response = requests.put(api_url, headers=headers, json=data)
+                
+                if response.status_code in [200, 201]:
+                    print(f"✅ Uploaded: {filename}")
+                    files_uploaded += 1
+                else:
+                    print(f"❌ Failed to upload {filename}: {response.status_code}")
+                    print(f"Error: {response.text}")
+                    
             except Exception as e:
-                print(f"⚠️ Cleanup warning: {e}")
+                print(f"❌ Error processing {filename}: {e}")
+                continue
         
-        return success
-        
+        if files_uploaded > 0:
+            print(f"🎉 Successfully uploaded {files_uploaded} files to GitHub!")
+            print(f"🔗 Check: https://github.com/{REPO_OWNER}/{REPO_NAME}")
+            return True
+        else:
+            print("❌ No files were uploaded")
+            return False
+            
     except Exception as e:
-        print(f"❌ Error in GitHub upload: {e}")
+        print(f"❌ Error in GitHub API upload: {e}")
         import traceback
         traceback.print_exc()
         return False
